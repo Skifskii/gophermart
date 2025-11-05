@@ -15,16 +15,38 @@ func New() *LoyaltySystem {
 	return &LoyaltySystem{}
 }
 
+type Status string
+
+const (
+	StatusRegistered Status = "REGISTERED"
+	StatusInvalid    Status = "INVALID"
+	StatusProcessing Status = "PROCESSING"
+	StatusProcessed  Status = "PROCESSED"
+)
+
+func (s *Status) toDomain() model.Status {
+	switch *s {
+	case StatusProcessing:
+		return model.StatusProcessing
+	case StatusInvalid:
+		return model.StatusInvalid
+	case StatusProcessed:
+		return model.StatusProcessed
+	default:
+		return model.StatusNew
+	}
+}
+
 type orderResponse struct {
-	Order   string       `json:"order"`
-	Status  model.Status `json:"status"`
-	Accrual *float64     `json:"accrual"`
+	Order   string   `json:"order"`
+	Status  Status   `json:"status"`
+	Accrual *float64 `json:"accrual"`
 }
 
 func (or *orderResponse) toDomain() model.Order {
 	return model.Order{
 		Number:     or.Order,
-		Status:     or.Status,
+		Status:     or.Status.toDomain(),
 		Accrual:    or.Accrual,
 		UploadedAt: time.Time{},
 	}
@@ -41,7 +63,7 @@ func (ls *LoyaltySystem) GetOrderInfo(orderNum string) (model.Order, error) {
 		},
 		{
 			Order:   "456",
-			Status:  "REGISTERED",
+			Status:  "PROCESSED",
 			Accrual: &f500,
 		},
 		{

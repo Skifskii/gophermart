@@ -9,7 +9,6 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"golang.org/x/crypto/bcrypt"
@@ -104,7 +103,7 @@ func (r *Repo) AuthenticateUser(login, password string) error {
 		login,
 	).Scan(&hashedPwdFromDB)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return repository.ErrUserLoginNotFound
 		}
 		return err
@@ -124,7 +123,7 @@ func (r *Repo) GetBalance(login string) (current, withdrawn float64, err error) 
 		login,
 	).Scan(&current, &withdrawn)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return 0, 0, repository.ErrUserLoginNotFound
 		}
 		return 0, 0, err
@@ -140,7 +139,7 @@ func (r *Repo) GetOrders(login string) ([]model.Order, error) {
 		login,
 	)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, repository.ErrUserLoginNotFound
 		}
 		return nil, err
@@ -151,6 +150,33 @@ func (r *Repo) GetOrders(login string) ([]model.Order, error) {
 	for rows.Next() {
 		var ord model.Order
 		err := rows.Scan(&ord.Number, &ord.Status, &ord.Accrual, &ord.UploadedAt)
+		if err != nil {
+			return nil, err
+		}
+		orders = append(orders, ord)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return orders, nil
+}
+
+func (r *Repo) GetUnfinishedOrders() ([]model.Order, error) {
+	// Получаем заказы пользователя
+	rows, err := r.db.Query(
+		"SELECT number, status, accrual, uploaded_at, user_login FROM orders WHERE status = 'NEW' OR status = 'PROCESSING';",
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var orders []model.Order
+	for rows.Next() {
+		var ord model.Order
+		err := rows.Scan(&ord.Number, &ord.Status, &ord.Accrual, &ord.UploadedAt, &ord.UserLogin)
 		if err != nil {
 			return nil, err
 		}
@@ -181,13 +207,49 @@ func (r *Repo) AddOrder(login string, order model.Order) error {
 	return err
 }
 
+func (r *Repo) UpdateOrders(orders []model.Order) error {
+	if len(orders) == 0 {
+		return nil
+	}
+
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	stmt, err := tx.Prepare(
+		`UPDATE orders
+		 SET status = $1, accrual = $2
+		 WHERE number = $3`,
+	)
+
+	if err != nil {
+		return err
+	}
+	defer stmt.Close()
+
+	for _, ord := range orders {
+		_, err := stmt.Exec(ord.Status, ord.Accrual, ord.Number)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := tx.Commit(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func (r *Repo) GetOrder(orderNum string) (ord model.Order, err error) {
 	err = r.db.QueryRow(
 		"SELECT number, status, accrual, uploaded_at, user_login FROM orders WHERE number = $1",
 		orderNum,
-	).Scan(ord.Number, ord.Status, ord.Accrual, ord.UploadedAt, ord.UserLogin)
+	).Scan(&ord.Number, &ord.Status, &ord.Accrual, &ord.UploadedAt, &ord.UserLogin)
 	if err != nil {
-		if errors.Is(err, pgx.ErrNoRows) {
+		if errors.Is(err, sql.ErrNoRows) {
 			return ord, repository.ErrOrderNotFound
 		}
 	}

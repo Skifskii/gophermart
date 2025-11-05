@@ -15,10 +15,10 @@ type BalanceResponse struct {
 type Status string
 
 const (
-	StatusRegistered Status = "REGISTERED"
-	StatusProcessing Status = "PROCESSING"
-	StatusInvalid    Status = "INVALID"
-	StatusProcessed  Status = "PROCESSED"
+	StatusNew        Status = "NEW"        // заказ загружен в систему, но не попал в обработку
+	StatusProcessing Status = "PROCESSING" // вознаграждение за заказ рассчитывается
+	StatusInvalid    Status = "INVALID"    // система расчёта вознаграждений отказала в расчёте
+	StatusProcessed  Status = "PROCESSED"  // данные по заказу проверены и информация о расчёте успешно
 )
 
 type Order struct {
