@@ -218,21 +218,37 @@ func (r *Repo) UpdateOrders(orders []model.Order) error {
 	}
 	defer tx.Rollback()
 
-	stmt, err := tx.Prepare(
+	updOrderStmt, err := tx.Prepare(
 		`UPDATE orders
 		 SET status = $1, accrual = $2
 		 WHERE number = $3`,
 	)
-
 	if err != nil {
 		return err
 	}
-	defer stmt.Close()
+	defer updOrderStmt.Close()
+
+	updUserStmt, err := tx.Prepare(
+		`UPDATE users
+		 SET balance = balance + $1
+		 WHERE login = $2`,
+	)
+	if err != nil {
+		return err
+	}
+	defer updOrderStmt.Close()
 
 	for _, ord := range orders {
-		_, err := stmt.Exec(ord.Status, ord.Accrual, ord.Number)
+		_, err := updOrderStmt.Exec(ord.Status, ord.Accrual, ord.Number)
 		if err != nil {
 			return err
+		}
+
+		if ord.Accrual != nil && *ord.Accrual > 0 {
+			_, err = updUserStmt.Exec(*ord.Accrual, ord.UserLogin)
+			if err != nil {
+				return err
+			}
 		}
 	}
 
