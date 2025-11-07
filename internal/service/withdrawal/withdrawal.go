@@ -69,3 +69,7 @@ func (wm *WithdrawalManager) RecordWithdrawal(userLogin, orderNum string, amount
 		UserLogin:   userLogin,
 	})
 }
+
+func (wm *WithdrawalManager) GetWithdrawals(userLogin string) ([]model.Withdrawal, error) {
+	return wm.repo.GetUserWithdrawals(userLogin)
+}

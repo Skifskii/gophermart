@@ -7,6 +7,7 @@ import (
 	"gophermart/internal/handler/api/user/balance/withdraw"
 	"gophermart/internal/handler/api/user/login"
 	"gophermart/internal/handler/api/user/orders"
+	"gophermart/internal/handler/api/user/withdrawals"
 
 	"gophermart/internal/handler/api/user/register"
 	"gophermart/internal/middleware/authmw"
@@ -57,6 +58,7 @@ func Run() error {
 			r.Post("/balance/withdraw", withdraw.NewPost(withdrawalManager))
 			r.Post("/orders", orders.NewPost(ordersManager))
 			r.Get("/orders", orders.NewGet(ordersManager))
+			r.Get("/withdrawals", withdrawals.NewGet(withdrawalManager))
 		})
 	})
 

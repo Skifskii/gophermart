@@ -314,6 +314,33 @@ func (r *Repo) RecordWithdrawal(withdrawal model.Withdrawal) error {
 	return err
 }
 
-func (r *Repo) GetUserWithdrawals(userLogin string) ([]model.Withdrawal, error) {
-	return nil, nil
+func (r *Repo) GetUserWithdrawals(login string) ([]model.Withdrawal, error) {
+	// Получаем заказы пользователя
+	rows, err := r.db.Query(
+		"SELECT order_num, sum, processed_at FROM withdrawals WHERE user_login = $1;",
+		login,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, repository.ErrUserLoginNotFound
+		}
+		return nil, err
+	}
+	defer rows.Close()
+
+	var withdrawals []model.Withdrawal
+	for rows.Next() {
+		var wd model.Withdrawal
+		err := rows.Scan(&wd.Order, &wd.Sum, &wd.ProcessedAt)
+		if err != nil {
+			return nil, err
+		}
+		withdrawals = append(withdrawals, wd)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return withdrawals, nil
 }
