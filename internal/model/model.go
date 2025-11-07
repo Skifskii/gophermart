@@ -28,3 +28,10 @@ type Order struct {
 	UploadedAt time.Time
 	UserLogin  string
 }
+
+type Withdrawal struct {
+	Order       string
+	Sum         float64
+	ProcessedAt time.Time
+	UserLogin   string
+}

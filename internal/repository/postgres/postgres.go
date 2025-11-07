@@ -259,6 +259,31 @@ func (r *Repo) UpdateOrders(orders []model.Order) error {
 	return nil
 }
 
+func (r *Repo) UpdateBalance(login string, amount float64) error {
+	_, err := r.db.Exec(
+		"UPDATE users SET balance = balance + $1 WHERE login = $2",
+		amount,
+		login,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Если баланс уменьшается, надо увеличить withdrawn
+	if amount < 0 {
+		_, err = r.db.Exec(
+			"UPDATE users SET withdrawn = withdrawn + $1 WHERE login = $2",
+			amount*-1,
+			login,
+		)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func (r *Repo) GetOrder(orderNum string) (ord model.Order, err error) {
 	err = r.db.QueryRow(
 		"SELECT number, status, accrual, uploaded_at, user_login FROM orders WHERE number = $1",
@@ -271,4 +296,24 @@ func (r *Repo) GetOrder(orderNum string) (ord model.Order, err error) {
 	}
 
 	return ord, err
+}
+
+func (r *Repo) RecordWithdrawal(withdrawal model.Withdrawal) error {
+	_, err := r.db.Exec(
+		"INSERT INTO withdrawals (order_num, sum, processed_at, user_login) VALUES ($1, $2, $3, $4)",
+		withdrawal.Order, withdrawal.Sum, withdrawal.ProcessedAt, withdrawal.UserLogin,
+	)
+
+	if err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+			return repository.ErrWithdrawalAlreadyExists
+		}
+	}
+
+	return err
+}
+
+func (r *Repo) GetUserWithdrawals(userLogin string) ([]model.Withdrawal, error) {
+	return nil, nil
 }

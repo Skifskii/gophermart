@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"gophermart/internal/config"
 	"gophermart/internal/handler/api/user/balance"
+	"gophermart/internal/handler/api/user/balance/withdraw"
 	"gophermart/internal/handler/api/user/login"
 	"gophermart/internal/handler/api/user/orders"
 
@@ -14,6 +15,7 @@ import (
 	bm "gophermart/internal/service/balance"
 	om "gophermart/internal/service/orders"
 	"gophermart/internal/service/orders/loyalsys"
+	"gophermart/internal/service/withdrawal"
 	"net/http"
 
 	"github.com/go-chi/chi"
@@ -39,6 +41,7 @@ func Run() error {
 	// - сервис управления заказами
 	loyaltySystem := loyalsys.New()
 	ordersManager := om.New(repo, loyaltySystem)
+	withdrawalManager := withdrawal.New(repo, balanceManager, ordersManager)
 
 	// HTTP сервер
 	router := chi.NewRouter()
@@ -51,6 +54,7 @@ func Run() error {
 			r.Use(authmw.AuthMiddleware(authService))
 
 			r.Get("/balance", balance.New(balanceManager))
+			r.Post("/balance/withdraw", withdraw.NewPost(withdrawalManager))
 			r.Post("/orders", orders.NewPost(ordersManager))
 			r.Get("/orders", orders.NewGet(ordersManager))
 		})

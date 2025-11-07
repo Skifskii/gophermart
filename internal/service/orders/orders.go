@@ -48,6 +48,10 @@ func New(repo Repository, infoGetter OrderInfoGetter) *OrdersManager {
 	return om
 }
 
+func (om *OrdersManager) GetOrder(orderNum string) (model.Order, error) {
+	return om.repo.GetOrder(orderNum)
+}
+
 func (om *OrdersManager) GetOrders(userLogin string) ([]model.Order, error) {
 	orders, err := om.repo.GetOrders(userLogin)
 	if err != nil {
