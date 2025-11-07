@@ -1,18 +1,25 @@
 package loyalsys
 
 import (
+	"encoding/json"
 	"errors"
+	"fmt"
 	"gophermart/internal/model"
+	"io"
+	"net/http"
+	"strings"
 	"time"
 )
 
 var ErrOrderNotRegistered = errors.New("the order is not registered in the payment system")
 var ErrRequestLimitReached = errors.New("the number of requests to the service has been exceeded") // TODO: может возвращаться при запросе в смежный сервис
 
-type LoyaltySystem struct{}
+type LoyaltySystem struct {
+	address string
+}
 
-func New() *LoyaltySystem {
-	return &LoyaltySystem{}
+func New(address string) *LoyaltySystem {
+	return &LoyaltySystem{address: address}
 }
 
 type Status string
@@ -53,6 +60,38 @@ func (or *orderResponse) toDomain() model.Order {
 }
 
 func (ls *LoyaltySystem) GetOrderInfo(orderNum string) (model.Order, error) {
+	url := strings.TrimRight(ls.address, "/") + "/api/orders/" + orderNum
+
+	client := &http.Client{Timeout: 5 * time.Second}
+	req, err := http.NewRequest(http.MethodGet, url, nil)
+	if err != nil {
+		return model.Order{}, err
+	}
+
+	resp, err := client.Do(req)
+	if err != nil {
+		return model.Order{}, err
+	}
+	defer resp.Body.Close()
+
+	switch resp.StatusCode {
+	case http.StatusOK:
+		var or orderResponse
+		if err := json.NewDecoder(resp.Body).Decode(&or); err != nil {
+			return model.Order{}, err
+		}
+		return or.toDomain(), nil
+	case http.StatusNotFound:
+		return model.Order{}, ErrOrderNotRegistered
+	case http.StatusTooManyRequests:
+		return model.Order{}, ErrRequestLimitReached
+	default:
+		body, _ := io.ReadAll(resp.Body)
+		return model.Order{}, fmt.Errorf("loyalsys: unexpected status %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
+	}
+}
+
+func (ls *LoyaltySystem) mockGetOrderInfo(orderNum string) (model.Order, error) {
 	f500 := 500.
 	// TODO: прикрутить сервис
 	mockOrders := []orderResponse{

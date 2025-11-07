@@ -47,7 +47,7 @@ func NewPost(wr WithdrawalRecorder) http.HandlerFunc {
 		}
 
 		// Загружаем номер заказа в сервис
-		if err := wr.RecordWithdrawal(userLogin, req.Order, -1*req.Sum); err != nil { // TODO: проверить работу.
+		if err := wr.RecordWithdrawal(userLogin, req.Order, -1*req.Sum); err != nil {
 			if errors.Is(err, withdrawal.ErrInsufficientFunds) {
 				// 402 — на счету недостаточно средств
 				w.WriteHeader(http.StatusPaymentRequired)

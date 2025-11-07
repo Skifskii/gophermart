@@ -40,7 +40,7 @@ func Run() error {
 	balanceManager := bm.New(repo)
 
 	// - сервис управления заказами
-	loyaltySystem := loyalsys.New()
+	loyaltySystem := loyalsys.New(cfg.AccrualSystemAddress)
 	ordersManager := om.New(repo, loyaltySystem)
 	withdrawalManager := withdrawal.New(repo, balanceManager, ordersManager)
 
